@@ -1,164 +1,202 @@
 using System;
 using System.Diagnostics;
-using System.Drawing;
+using System.Globalization;
 using System.IO;
-using System.Linq;
+using System.Security.Principal;
+using System.Threading.Tasks;
 using System.Windows.Forms;
-using Microsoft.Win32;
+using System.Drawing;
 
 namespace FontFixerGUI
 {
     public partial class Form1 : Form
     {
         private Label statusLabel;
+        private TextBox logBox;
+        private Button installBtn;
+        private Button revertBtn;
+        private ComboBox langBox;
 
         public Form1()
         {
             InitializeComponent();
 
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-this.MaximizeBox = false;
-this.MinimizeBox = true;
-
-            Text = "JP Font Fixer";
+            Text = "JP Font Fixer v1.1";
             Width = 360;
-            Height = 240;
-            Font = new Font("Segoe UI", 10);
-            BackColor = Color.FromArgb(245, 245, 245);
+            Height = 320;
+
+            FormBorderStyle = FormBorderStyle.FixedSingle;
+            MaximizeBox = false;
 
             try
             {
-                this.Icon = new Icon("icon.ico");
+                Icon = new Icon("icon.ico");
             }
-            catch { /* ignore if missing */ }
+            catch { }
 
-            // STATUS LABEL
+            // STATUS
             statusLabel = new Label()
             {
-                Text = "Status: Ready",
-                Width = 300,
+                Text = "Status: Idle",
                 Top = 10,
                 Left = 20,
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                ForeColor = Color.Black
+                Width = 300
             };
-            Controls.Add(statusLabel);
 
             // INSTALL BUTTON
-            var installBtn = new Button()
+            installBtn = new Button()
             {
-                Text = "Install Noto JP Fonts",
-                Width = 260,
-                Height = 40,
-                Top = 50,
-                Left = 40,
-                FlatStyle = FlatStyle.Flat
-            };
-
-            installBtn.Click += (s, e) =>
-            {
-                if (FontsAlreadyInstalled())
-                {
-                    SetStatus("Already installed", Color.DarkGoldenrod);
-                    Log("Install skipped");
-                    return;
-                }
-
-                SetStatus("Installing...", Color.DarkOrange);
-                Log("Starting install");
-
-                RunScript("install.ps1");
-
-                SetStatus("Install triggered", Color.DarkGreen);
-                Log("Install script executed");
+                Text = "Install Fonts",
+                Width = 280,
+                Top = 40,
+                Left = 20
             };
 
             // REVERT BUTTON
-            var revertBtn = new Button()
+            revertBtn = new Button()
             {
                 Text = "Revert Fonts",
-                Width = 260,
-                Height = 40,
-                Top = 110,
-                Left = 40,
-                FlatStyle = FlatStyle.Flat
+                Width = 280,
+                Top = 80,
+                Left = 20
             };
 
-            revertBtn.Click += (s, e) =>
+            // LANGUAGE SELECT
+            langBox = new ComboBox()
             {
-                SetStatus("Reverting...", Color.DarkOrange);
-                Log("Starting revert");
-
-                RunScript("revert.ps1");
-
-                SetStatus("Reverted", Color.DarkGreen);
-                Log("Revert script executed");
+                Top = 120,
+                Left = 20,
+                Width = 140
             };
 
+            langBox.Items.AddRange(new[] { "English", "日本語" });
+            langBox.SelectedIndex = 0;
+            langBox.SelectedIndexChanged += (s, e) => SwitchLanguage();
+
+            // LOG BOX
+            logBox = new TextBox()
+            {
+                Top = 160,
+                Left = 20,
+                Width = 300,
+                Height = 100,
+                Multiline = true,
+                ReadOnly = true,
+                ScrollBars = ScrollBars.Vertical
+            };
+
+            // EVENTS
+            installBtn.Click += async (s, e) => await RunScript("install.ps1");
+            revertBtn.Click += async (s, e) => await RunScript("revert.ps1");
+
+            // ADD CONTROLS
+            Controls.Add(statusLabel);
             Controls.Add(installBtn);
             Controls.Add(revertBtn);
-        }
+            Controls.Add(langBox);
+            Controls.Add(logBox);
 
-        // STATUS HELPER
-        private void SetStatus(string text, Color color)
-        {
-            statusLabel.Text = $"Status: {text}";
-            statusLabel.ForeColor = color;
-        }
-
-        // RUN POWERSHELL SCRIPT
-        private void RunScript(string scriptName)
-        {
-            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            var scriptPath = Path.GetFullPath(
-                Path.Combine(baseDir, "..", "..", "..", "scripts", scriptName));
-
-            if (!File.Exists(scriptPath))
+            // ADMIN CHECK
+            if (!IsAdmin())
             {
-                MessageBox.Show($"Script not found:\n{scriptPath}");
-                SetStatus("Script missing", Color.Red);
-                Log($"Missing script: {scriptPath}");
-                return;
+                MessageBox.Show(
+                    "This tool requires Administrator privileges.",
+                    "JP Font Fixer",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
             }
-
-            var psi = new ProcessStartInfo
-            {
-                FileName = "powershell",
-                Arguments = $"-ExecutionPolicy Bypass -File \"{scriptPath}\"",
-                UseShellExecute = true,
-                Verb = "runas"
-            };
-
-            Process.Start(psi);
         }
 
-        // LOGGING
-        private void Log(string message)
+        private async Task RunScript(string scriptName)
         {
-            var logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
-            Directory.CreateDirectory(logDir);
+            SetStatus("Running...");
+            SetButtons(false);
+            Log($"Starting {scriptName}");
 
-            var file = Path.Combine(logDir, "app.log");
-            File.AppendAllText(file, $"[{DateTime.Now}] {message}\n");
-        }
-
-        // SAFE MODE CHECK
-        private bool FontsAlreadyInstalled()
-        {
             try
             {
-                var key = Registry.LocalMachine.OpenSubKey(
-                    @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts");
+                var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                var scriptPath = Path.Combine(baseDir, "scripts", scriptName);
 
-                if (key == null) return false;
+                if (!File.Exists(scriptPath))
+                {
+                    SetStatus("Error ❌");
+                    Log("Script not found: " + scriptPath);
+                    SetButtons(true);
+                    return;
+                }
 
-                return key.GetValueNames().Any(v =>
-                    v.Contains("Noto Sans JP"));
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "powershell",
+                    Arguments = $"-ExecutionPolicy Bypass -File \"{scriptPath}\"",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                var process = Process.Start(psi);
+
+                string output = await process.StandardOutput.ReadToEndAsync();
+                string error = await process.StandardError.ReadToEndAsync();
+
+                process.WaitForExit();
+
+                if (!string.IsNullOrWhiteSpace(output))
+                    Log(output);
+
+                if (!string.IsNullOrWhiteSpace(error))
+                {
+                    Log("ERROR: " + error);
+                    SetStatus("Error ❌");
+                }
+                else
+                {
+                    Log("Done ✔");
+                    SetStatus("Completed ✔");
+                }
             }
-            catch
+            catch (Exception ex)
             {
-                return false;
+                Log("Exception: " + ex.Message);
+                SetStatus("Error ❌");
             }
+
+            SetButtons(true);
+        }
+
+        private void SetStatus(string text)
+        {
+            statusLabel.Text = "Status: " + text;
+        }
+
+        private void Log(string message)
+        {
+            logBox.AppendText($"[{DateTime.Now:T}] {message}{Environment.NewLine}");
+        }
+
+        private void SetButtons(bool enabled)
+        {
+            installBtn.Enabled = enabled;
+            revertBtn.Enabled = enabled;
+        }
+
+        private bool IsAdmin()
+        {
+            var identity = WindowsIdentity.GetCurrent();
+            var principal = new WindowsPrincipal(identity);
+            return principal.IsInRole(WindowsBuiltInRole.Administrator);
+        }
+
+        private void SwitchLanguage()
+        {
+            bool jp = langBox.SelectedIndex == 1;
+
+            installBtn.Text = jp ? "フォントをインストール" : "Install Fonts";
+            revertBtn.Text = jp ? "元に戻す" : "Revert Fonts";
+            Text = jp ? "日本語フォント修正ツール v1.1" : "JP Font Fixer v1.1";
         }
     }
 }
