@@ -1,0 +1,14 @@
+@echo off
+echo JP Font Fixer
+echo by dmx3377
+echo =====================
+echo Installing fonts...
+
+powershell -ExecutionPolicy Bypass -File scripts\install_fonts.ps1
+
+echo Applying font override...
+reg import scripts\font_override.reg
+
+echo Done.
+echo Please restart your PC to apply changes.
+pause
