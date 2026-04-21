@@ -1,3 +1,4 @@
+[<u>**English**</u>](README.md) | [Japanese/日本語](README-ja.md)
 # JP Font Fixer
 
 A small Windows utility that installs and overrides Japanese system fonts using Noto Sans JP.
