@@ -14,7 +14,6 @@ Get-ChildItem $fontDir -Include *.ttf, *.otf | ForEach-Object {
     }
 }
 
-# Registry path
 $regPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\FontSubstitutes"
 
 # Ensure key exists
@@ -22,7 +21,7 @@ if (-not (Test-Path $regPath)) {
     New-Item $regPath | Out-Null
 }
 
-# Apply substitutions safely
+# Apply substitutions
 Set-ItemProperty $regPath "MS Gothic" "Noto Sans JP"
 Set-ItemProperty $regPath "MS UI Gothic" "Noto Sans JP"
 Set-ItemProperty $regPath "MS PGothic" "Noto Sans JP"

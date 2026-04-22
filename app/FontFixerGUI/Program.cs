@@ -1,16 +1,25 @@
 namespace FontFixerGUI;
 
-static class Program
+using System;
+using System.Security.Principal;
+using static System.Net.Mime.MediaTypeNames;
+
+static bool IsAdmin()
 {
-    /// <summary>
-    ///  The main entry point for the application.
-    /// </summary>
-    [STAThread]
-    static void Main()
+    var identity = WindowsIdentity.GetCurrent();
+    var principal = new WindowsPrincipal(identity);
+    return principal.IsInRole(WindowsBuiltInRole.Administrator);
+}
+
+[STAThread]
+static void Main()
+{
+    if (!IsAdmin())
     {
-        // To customize application configuration such as set high DPI settings or default font,
-        // see https://aka.ms/applicationconfiguration.
-        ApplicationConfiguration.Initialize();
-        Application.Run(new Form1());
-    }    
+        MessageBox.Show("Please run this app as Administrator.");
+        return;
+    }
+
+    ApplicationConfiguration.Initialize();
+    Application.Run(new Form1());
 }

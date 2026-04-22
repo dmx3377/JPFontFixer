@@ -34,7 +34,6 @@ namespace FontFixerGUI
             }
             catch { }
 
-            // STATUS
             statusLabel = new Label()
             {
                 Text = "Status: Idle",
@@ -43,7 +42,8 @@ namespace FontFixerGUI
                 Width = 300
             };
 
-            // INSTALL BUTTON
+            statusLabel.Font = new Font(statusLabel.Font, FontStyle.Bold);
+
             installBtn = new Button()
             {
                 Text = "Install Fonts",
@@ -52,7 +52,6 @@ namespace FontFixerGUI
                 Left = 20
             };
 
-            // REVERT BUTTON
             revertBtn = new Button()
             {
                 Text = "Revert Fonts",
@@ -61,19 +60,20 @@ namespace FontFixerGUI
                 Left = 20
             };
 
-            // LANGUAGE SELECT
             langBox = new ComboBox()
             {
                 Top = 120,
+
                 Left = 20,
                 Width = 140
             };
 
+            langBox.DropDownStyle = ComboBoxStyle.DropDownList;
             langBox.Items.AddRange(new[] { "English", "日本語" });
             langBox.SelectedIndex = 0;
             langBox.SelectedIndexChanged += (s, e) => SwitchLanguage();
+            langBox.FlatStyle = FlatStyle.Flat;
 
-            // LOG BOX
             logBox = new TextBox()
             {
                 Top = 160,
@@ -85,18 +85,23 @@ namespace FontFixerGUI
                 ScrollBars = ScrollBars.Vertical
             };
 
-            // EVENTS
+            logBox.Font = new Font("Consolas", 9);
+
+            installBtn.Height = 45;
+            revertBtn.Height = 45;
+            installBtn.FlatStyle = FlatStyle.Flat;
+            revertBtn.FlatStyle = FlatStyle.Flat;
+
+
             installBtn.Click += async (s, e) => await RunScript("install.ps1");
             revertBtn.Click += async (s, e) => await RunScript("revert.ps1");
 
-            // ADD CONTROLS
             Controls.Add(statusLabel);
             Controls.Add(installBtn);
             Controls.Add(revertBtn);
             Controls.Add(langBox);
             Controls.Add(logBox);
 
-            // ADMIN CHECK
             if (!IsAdmin())
             {
                 MessageBox.Show(
@@ -193,10 +198,10 @@ namespace FontFixerGUI
         private void SwitchLanguage()
         {
             bool jp = langBox.SelectedIndex == 1;
-
+            // TODO: Use resource file instead of hardcoding the JP
             installBtn.Text = jp ? "フォントをインストール" : "Install Fonts";
             revertBtn.Text = jp ? "元に戻す" : "Revert Fonts";
-            Text = jp ? "日本語フォント修正ツール v1.1" : "JP Font Fixer v1.1";
+            Text = jp ? "日本語フォント修正ツール v1.2" : "JP Font Fixer v1.2";
         }
     }
 }
